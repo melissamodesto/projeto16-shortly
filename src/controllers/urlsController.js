@@ -29,7 +29,7 @@ export async function postUrl(req, res) {
             return res.status(401).send('Token inválido');
         }
 
-        const id = nanoid(5);
+        const id = nanoid(8);
 
         await connection.query(`
             INSERT INTO urls (id, url, "userId")
@@ -48,4 +48,30 @@ export async function postUrl(req, res) {
     }
 
 }
+
+export async function getUrl(req, res) {
+
+    const { id } = req.params;
+
+    try {
+
+        const query = `SELECT urls.id, urls."shortUrl", urls.url FROM urls 
+        WHERE urls.id=$1`;
+        const values = [parseInt(id)];
+
+        const url = await connection.query(query, values);
+
+        if (url.rowCount === 0) {
+            return res.status(404).send("URL não encontrada");
+        }
+
+        res.status(200).send(url.rows[0]);
+
+    } catch (error) {
+        console.log(error);
+        res.status(422).send("Erro ao buscar URL");
+    }
+
+}
+
 
