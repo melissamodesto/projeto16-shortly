@@ -1,7 +1,9 @@
-import { v4 as uuid } from 'uuid';
+import { connection } from '../database/db.js';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
 
-import connection from '../database/connection.js';
+dotenv.config();
 
 export async function postSignUp(req, res) {
     const { name, email, password } = req.body;
@@ -15,12 +17,13 @@ export async function postSignUp(req, res) {
             return res.status(422).send("Usuário já cadastrado. Tente fazer login.");
         }
 
-        const query = 'INSERT INTO users (name, email, password) VALUES ($1, $2, $3)';
+        const query = `INSERT INTO users (name, email, password) VALUES ($1, $2, $3)`;
         const values = [name, email, hash];
 
         try {
             await connection.query(query, values);
             res.sendStatus(201);
+
         } catch (error) {
             console.log(error);
             res.sendStatus(500);
@@ -36,7 +39,11 @@ export async function postSignIn(req, res) {
     const { email, password } = req.body;
 
     try {
-        const user = await connection.query('SELECT * FROM users.email, users.password WHERE email = $1', [email]);
+
+        const query = `SELECT * FROM users.email, users.password WHERE email = $1`;
+        const values = [email];
+
+        const user = await connection.query(query, values);
 
         if (user.rowCount === 0) {
             return res.status(422).send("Usuário não encontrado. Tente novamente.");
@@ -44,22 +51,28 @@ export async function postSignIn(req, res) {
 
         const isPasswordCorrect = bcrypt.compareSync(password, user.rows[0].password);
 
-        if (!isPasswordCorrect) {
-            return res.status(422).send("Senha incorreta. Tente novamente.");
-        }
+        if (isPasswordCorrect) {
 
-        const token = uuid();
+            const data = {
+                id: user.rows[0].id,
+                name: user.rows[0].name,
+            }
 
-        try {
-            await connection.query('UPDATE users SET token = $1 WHERE email = $2', [token, email]);
-            res.send(token);
-        } catch (error) {
-            console.log(error);
-            res.sendStatus(500);
+            const secretKey = process.env.JWT_SECRET;
+
+            const token = jwt.sign(data, secretKey, { expiresIn: '1d' });
+
+            const query = `INSERT INTO sessions ("userId", token) VALUES ($1, $2)`;
+            const values = [user.rows[0].id, token];
+
+            await connection.query(query, values);
+
+            res.status(200).send(token);
         }
 
     } catch (error) {
         console.log(error);
+
         res.status(422).send("Erro ao fazer login. Tente novamente.");
     }
 }
