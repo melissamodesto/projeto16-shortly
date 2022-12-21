@@ -74,4 +74,72 @@ export async function getUrl(req, res) {
 
 }
 
+export async function deleteUrl(req, res) {
+
+    const { id } = req.params;
+    const { authorization } = req.headers;
+    const token = authorization?.replace("Bearer ", "").trim();
+
+    if (!token) {
+        return res.status(401).send("Token não enviado");
+    }
+
+    const secretKey = process.env.JWT_SECRET_KEY;
+    const userInfo = jwt.verify(token, secretKey);
+    delete userInfo.iat;
+
+    try {
+        const userAuthorized = await connection.query(`
+            SELECT * FROM sessions
+            WHERE token = $1
+        `, [token]);
+
+        if (!userAuthorized.rowCount === 0) {
+            return res.status(401).send('Token inválido');
+        }
+
+        const query = `DELETE FROM urls WHERE id = $1`;
+        const values = [id];
+
+        await connection.query(query, values);
+
+        res.sendStatus(200);
+
+    } catch (error) {
+        console.log(error);
+        res.status(422).send("Erro ao deletar URL");
+    }
+
+}
+
+export async function getShortUrl(req, res) {
+
+    const { shortUrl } = req.params;
+
+    try {
+
+        const query = `SELECT urls.url FROM urls WHERE urls."shortUrl"=$1`;
+        const values = [shortUrl];
+
+        const url = await connection.query(query, values);
+
+        if (url.rowCount === 0) {
+            return res.status(404).send("URL não encontrada");
+        }
+
+        await connection.query(`UPDATE urls SET visualization = visualization + 1 
+        WHERE urls."shortUrl"=$1`, [shortUrl])
+
+        res.redirect(url.rows[0].url);
+
+    } catch (error) {
+
+        console.log(error);
+        res.status(422).send("Erro ao buscar URL");
+    }
+
+}
+
+
+
 
