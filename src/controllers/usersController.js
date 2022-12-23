@@ -1,4 +1,8 @@
 import { connection } from "../database/db.js";
+import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 export async function getUsers(req, res) {
 
@@ -8,7 +12,25 @@ export async function getUsers(req, res) {
         return res.status(400).send('ID inválido');
     }
 
+    const authorization = req.headers.authorization;
+    const token = authorization?.replace("Bearer ", "").trim();
+
+    if(!token){
+        return res.status(401).send(`Nenhum token enviado`);
+    }
+
+    const secretKey = process.env.JWT_SECRET;
+    const userInfo = jwt.verify(token, secretKey);
+    delete userInfo.iat;
+
     try {
+
+        const userAuthorized = await connection.query(`SELECT * FROM sessions WHERE "token" = $1 AND "userId" = $2`, [token, parseInt(userInfo.id)]);
+        
+        if(userAuthorized.rowCount === 0){
+            return res.status(401).send('Token inválido');
+        }
+
         const query = `SELECT * FROM users WHERE id = $1`;
         const values = [id];
 
@@ -32,7 +54,7 @@ export async function getUsers(req, res) {
             [parseInt(id)]);
 
         if (userInfoGenerally.rowCount !== 0 && userInfo.rowCount !== 0) {
-            const info = { ...userInfoGenerally.rows, "shortenedUrls": userInfo.rows };
+            const info = { ...userInfoGenerally.rows[0], "shortenedUrls": userInfo.rows };
             res.status(200).send(info);
         } else {
             const info = { id: isUser.rows[0].id, name: isUser.rows[0].name, visitCount: 0, shortenedUrls: [] };
@@ -51,7 +73,7 @@ export async function getRanking(req, res) {
                         COUNT(url) as "linksCount",
                         SUM(visualization) as "visitCount"
                         FROM users
-                        JOIN urls ON urls."userId"=users.id
+                        LEFT JOIN urls ON urls."userId"=users.id
                         GROUP BY "usersId", name
                         ORDER BY "visitCount" DESC
                         LIMIT 10`;
