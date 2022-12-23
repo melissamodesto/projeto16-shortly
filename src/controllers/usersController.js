@@ -86,12 +86,12 @@ export async function getUsers(req, res) {
 
 export async function getRanking(req, res) {
     try {
-        const query = `SELECT "usersId" as id, name,
-                        COUNT(url) as "linksCount",
-                        SUM(visualization) as "visitCount"
-                        FROM users
-                        LEFT JOIN urls ON urls."userId"=users.id
-                        GROUP BY "usersId", name
+        const query = `SELECT users.id, users.name,
+                        COUNT(urls.id) as "linksCount",
+                        SUM(urls.visualization, 0) as "visitCount"
+                        FROM urls
+                        LEFT JOIN users ON urls."userId"=users.id
+                        GROUP BY users.id
                         ORDER BY "visitCount" DESC
                         LIMIT 10`;
 

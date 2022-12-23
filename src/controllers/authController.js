@@ -40,7 +40,7 @@ export async function postSignIn(req, res) {
 
     try {
 
-        const query = `SELECT * FROM users.email, users.password WHERE email = $1`;
+        const query = `SELECT * FROM users WHERE email = $1`;
         const values = [email];
 
         const user = await connection.query(query, values);
@@ -69,6 +69,8 @@ export async function postSignIn(req, res) {
 
             res.status(200).send(token);
         }
+
+        res.status(422).send("Senha incorreta. Tente novamente.");
 
     } catch (error) {
         console.log(error);

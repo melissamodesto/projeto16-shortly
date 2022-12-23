@@ -20,7 +20,7 @@ export async function postUrl(req, res) {
     const secretKey = process.env.JWT_SECRET_KEY;
     let userInfo = null;
 
-    userInfo = jwt.verify(token, secretKey, function(err, dcoded) {
+    userInfo = jwt.verify(token, secretKey, function(err, decoded) {
         if (err) {
             error = err;
         }
@@ -42,16 +42,16 @@ export async function postUrl(req, res) {
             WHERE "token" = $1 and "userId" = $2
         `, [token, parseInt(userInfo.id)]);
 
-        if (!userAuthorized.rowCount === 0) {
+        if (userAuthorized.rowCount === 0) {
             return res.status(401).send('Token inválido');
         }
 
-        const id = nanoid(8);
+        const shortlyUrl = nanoid(8);
 
         await connection.query(`
-            INSERT INTO urls (id, url, "userId")
+            INSERT INTO urls ("shortlyUrl", url, "userId")
             VALUES ($1, $2, $3)
-        `, [id, url, user.id]);
+        `, [shortlyUrl, url, user.id]);
 
         res.status(201).send({
             id,
@@ -86,7 +86,7 @@ export async function getUrl(req, res) {
             return res.status(404).send("URL não encontrada");
         }
 
-        res.status(200).send(url.rows[0]);
+        res.status(200).send(...url.rows[0]);
 
     } catch (error) {
         console.log(error);
