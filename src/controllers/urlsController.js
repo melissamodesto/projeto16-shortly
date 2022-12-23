@@ -10,14 +10,31 @@ export async function postUrl(req, res) {
     const { url } = req.body;
     const { authorization } = req.headers;
     const token = authorization?.replace("Bearer ", "").trim();
+    
+    let error = null;
 
     if (!token) {
         return res.status(401).send("Token não enviado");
     }
 
     const secretKey = process.env.JWT_SECRET_KEY;
-    const userInfo = jwt.verify(token, secretKey);
+    let userInfo = null;
+
+    userInfo = jwt.verify(token, secretKey, function(err, dcoded) {
+        if (err) {
+            error = err;
+        }
+
+    });
+
+    if (error) {
+        return res.status(401).send("Token inválido");
+    } else {
+        userInfo = jwt.verify(token, secretKey);
+    }
+
     delete userInfo.iat;
+
 
     try {
         const userAuthorized = await connection.query(`
@@ -44,7 +61,7 @@ export async function postUrl(req, res) {
 
     } catch (error) {
         console.log(error);
-        res.status(422).send("Erro ao encurtar URL");
+        res.status(500).send("Erro ao encurtar URL");
     }
 
 }
@@ -73,7 +90,7 @@ export async function getUrl(req, res) {
 
     } catch (error) {
         console.log(error);
-        res.status(422).send("Erro ao buscar URL");
+        res.status(500).send("Erro ao buscar URL");
     }
 
 }
@@ -84,6 +101,8 @@ export async function deleteUrl(req, res) {
     const { authorization } = req.headers;
     const token = authorization?.replace("Bearer ", "").trim();
 
+    let error = null;
+
     if (isNaN(id)) {
         return res.status(422).send("ID inválido");
     }
@@ -93,14 +112,27 @@ export async function deleteUrl(req, res) {
     }
 
     const secretKey = process.env.JWT_SECRET_KEY;
-    const userInfo = jwt.verify(token, secretKey);
+    
+    let userInfo = null;
+    userInfo = jwt.verify(token, secretKey, function(err, decoded) {
+        if (err){
+            error = err;
+        }
+    }); 
+
+    if(error){
+        return res.status(401).send("Token inválido!");
+    } else {
+        userInfo = jwt.verify(token, secretKey);
+    }
+
     delete userInfo.iat;
 
     try {
         const userAuthorized = await connection.query(`
             SELECT * FROM sessions
-            WHERE token = $1
-        `, [token]);
+            WHERE "token" = $1 and "userId" = $2
+        `, [token, parseInt(userInfo.id)]);
 
         if (!userAuthorized.rowCount === 0) {
             return res.status(401).send('Token inválido');
@@ -115,7 +147,7 @@ export async function deleteUrl(req, res) {
 
     } catch (error) {
         console.log(error);
-        res.status(422).send("Erro ao deletar URL");
+        res.status(500).send("Erro ao deletar URL");
     }
 
 }
@@ -147,7 +179,7 @@ export async function getShortUrl(req, res) {
     } catch (error) {
 
         console.log(error);
-        res.status(422).send("Erro ao buscar URL");
+        res.status(500).send("Erro ao buscar URL");
     }
 
 }

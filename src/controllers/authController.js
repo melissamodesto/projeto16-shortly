@@ -30,7 +30,7 @@ export async function postSignUp(req, res) {
         }
     } catch (error) {
         console.log(error);
-        res.status(422).send("Erro ao cadastrar usuário. Tente novamente.");
+        res.status(500).send("Erro ao cadastrar usuário. Tente novamente.");
     }
 
 }
@@ -73,6 +73,6 @@ export async function postSignIn(req, res) {
     } catch (error) {
         console.log(error);
 
-        res.status(422).send("Erro ao fazer login. Tente novamente.");
+        res.status(500).send("Erro ao fazer login. Tente novamente.");
     }
 }

@@ -8,6 +8,8 @@ export async function getUsers(req, res) {
 
     const { id } = req.params;
 
+    let error = null;
+
     if (isNaN(id)) {
         return res.status(400).send('ID inválido');
     }
@@ -20,12 +22,27 @@ export async function getUsers(req, res) {
     }
 
     const secretKey = process.env.JWT_SECRET;
-    const userInfo = jwt.verify(token, secretKey);
+    
+    let userInfoToken = null;
+
+    userInfoToken = jwt.verify(token, secretKey, 
+        function(err, decoded) {
+        if (err){
+            error = err;
+        }
+    }); 
+
+    if(error){
+        return res.status(401).send("Token inválido!");
+    } else {
+        userInfoToken = jwt.verify(token, secretKey);
+    }
+
     delete userInfo.iat;
 
     try {
 
-        const userAuthorized = await connection.query(`SELECT * FROM sessions WHERE "token" = $1 AND "userId" = $2`, [token, parseInt(userInfo.id)]);
+        const userAuthorized = await connection.query(`SELECT * FROM sessions WHERE "token" = $1 AND "userId" = $2`, [token, parseInt(userInfoToken.id)]);
         
         if(userAuthorized.rowCount === 0){
             return res.status(401).send('Token inválido');
